@@ -416,10 +416,10 @@ jobs:
           chmod 600 ~/.kube/config
 
       - name: Set image tag to this commit
-        working-directory: k8s/base
+        working-directory: k8s/overlays/cloud
         run: kustomize edit set image ghcr.io/josefin3647/mini-project-ci-cd/churn-api:${{ github.sha }}
 
       - name: Deploy with rolling update
         run: |
-          kubectl apply -k k8s/base -n josefin-lesley
+          kubectl apply -k k8s/overlays/cloud -n josefin-lesley
           kubectl rollout status deployment/churn-api -n josefin-lesley --timeout=180s
