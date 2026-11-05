@@ -348,6 +348,12 @@ To improve operational reliability, container security, and CI resource utilizat
 | **Image Cleanliness** | Included build tools (`uv`) & caches | Stripped `.venv`, runtime-only | Minimal attack surface |
 | **Security** | Root user, no healthcheck | `appuser` (non-root) + container `HEALTHCHECK` | Least privilege, orchestration-ready |
 
+## ☸️ Kubernetes Deployment
+
+The service runs in two environments: locally in kind and in the class cluster (k3s on Hetzner, arm64). The pipeline deploys to the class cluster from `main` after manual approval.
+
+See [docs/deployment.md](docs/deployment.md) (in Swedish) for environments, rollout strategy, pipeline deployment and the operations plan.
+
 ## 🛡️ Statistical Data Drift & Safe Data Delivery (VG)
 
 To protect the model from retraining on skewed or incomplete data deliveries that still pass static Pandera schema rules, `src/churn/drift.py` compares incoming deliveries against `data/kundbas.csv`:
