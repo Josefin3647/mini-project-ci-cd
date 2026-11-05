@@ -397,3 +397,28 @@ jobs:
         with:
           name: call-list-${{ github.sha }}
           path: outputs/call_list.csv
+
+  deploy-production:
+    name: Deploy to Production (class cluster)
+    needs: package
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Write kubeconfig from secret
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBECONFIG }}" > ~/.kube/config
+          chmod 600 ~/.kube/config
+
+      - name: Set image tag to this commit
+        working-directory: k8s/base
+        run: kustomize edit set image ghcr.io/josefin3647/mini-project-ci-cd/churn-api:${{ github.sha }}
+
+      - name: Deploy with rolling update
+        run: |
+          kubectl apply -k k8s/base -n josefin-lesley
+          kubectl rollout status deployment/churn-api -n josefin-lesley --timeout=180s
