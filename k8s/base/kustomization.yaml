@@ -7,4 +7,4 @@ resources:
 
 images:
   - name: ghcr.io/josefin3647/mini-project-ci-cd/churn-api
-    newTag: 7d75a18fe3ec563b8d6a4437f14a5e34a9f97ad5
+    newTag: 88d069aa450e3415a1337b681c25610af2407d18
