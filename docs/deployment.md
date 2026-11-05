@@ -55,7 +55,7 @@ Jobbet `deploy-production` i `.github/workflows/ci.yml` rullar ut till klassklus
 - **Godkännande före produktion:** jobbet använder GitHub-miljön `production`, som kräver godkännande av en granskare och bara tillåter branchen `main`.
 - **Kubeconfig som secret:** åtkomsten till klustret ligger som secret i miljön `production`, så bara godkända jobb kommer åt den.
 
-Jobbet sätter imagens tagg till commitens SHA med `kustomize edit set image`, kör `kubectl apply -k` och väntar med `kubectl rollout status`. Varje commit på `main` som ändrar kod, data eller manifest byggs som en image med commitens SHA och rullas ut efter godkännande. Taggen committas inte tillbaka, så `newTag` i `kustomization.yaml` är bara etst startvärde för manuella utrullningar.
+Jobbet sätter imagens tagg till commitens SHA med `kustomize edit set image`, kör `kubectl apply -k` och väntar med `kubectl rollout status`. Varje commit på `main` som ändrar kod, data eller manifest byggs som en image med commitens SHA och rullas ut efter godkännande. Taggen committas inte tillbaka, så `newTag` i `kustomization.yaml` är bara ett startvärde för manuella utrullningar.
 
 En tillbakarullning i produktion görs med `kubectl rollout undo` och sedan `git revert` av commiten som orsakade problemet. Reverten blir en ny commit som pipelinen rullar ut efter godkännande.
 
