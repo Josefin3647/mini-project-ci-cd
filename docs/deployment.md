@@ -7,11 +7,11 @@
 | kind på min dator | Test | `kind-churn` |
 | Klassklustret (k3s på Hetzner, arm64) | Produktion | `mlops-ht26`, namespace `josefin-lesley` |
 
-Båda använder samma manifest i `k8s/base`:
+Deployment och Service ligger i `k8s/base` och är samma i båda miljöerna. Klassklustret använder overlayen `k8s/overlays/cloud`, som bygger på base och lägger till en Ingress för HTTPS utifrån. Ingressen ligger bara i overlayen eftersom den kräver Traefik och cert-manager, som finns i klassklustret men inte i kind, och eftersom hostnamnet innehåller klustrets IP-adress.
 
 ```bash
 kubectl apply -k k8s/base --context kind-churn
-kubectl apply -k k8s/base --context mlops-ht26 -n josefin-lesley
+kubectl apply -k k8s/overlays/cloud --context mlops-ht26 -n josefin-lesley
 ```
 
 För att tjänsten skulle köra i klassklustret behövde jag:
@@ -22,6 +22,16 @@ För att tjänsten skulle köra i klassklustret behövde jag:
 - **Förnya pull-secreten `ghcr`** med en egen token med `read:packages`.
 
 ![Poddar i klassklustret](cloud_pods.png)
+
+### Status för molnmiljön
+
+Tjänsten nåddes via Ingress och HTTPS. Svaret kom från FastAPI (`Server: uvicorn`) med modellen laddad:
+
+![Svar från /health via Ingress](cloud_ingress_health.png)
+
+Senaste lyckade utrullningen gjordes 2026-11-05 i [körning #34](https://github.com/Josefin3647/mini-project-ci-cd/actions/runs/42038475913) från commit `69ec30c`. Samma SHA kördes i klustret, vilket visar att det som rullades ut var exakt den commit som låg på `main`.
+
+Åtkomsten till klassklustret upphörde 2026-11-06 när kursmomentet stängdes, och `KUBECONFIG`-secreten har därefter tagits bort från repot.
 
 ## Utrullningsstrategi: rolling update
 
@@ -55,7 +65,7 @@ Jobbet `deploy-production` i `.github/workflows/ci.yml` rullar ut till klassklus
 - **Godkännande före produktion:** jobbet använder GitHub-miljön `production`, som kräver godkännande av en granskare och bara tillåter branchen `main`.
 - **Kubeconfig som secret:** åtkomsten till klustret ligger som secret i miljön `production`, så bara godkända jobb kommer åt den.
 
-Jobbet sätter imagens tagg till commitens SHA med `kustomize edit set image`, kör `kubectl apply -k` och väntar med `kubectl rollout status`. Varje commit på `main` som ändrar kod, data eller manifest byggs som en image med commitens SHA och rullas ut efter godkännande. Taggen committas inte tillbaka, så `newTag` i `kustomization.yaml` är bara ett startvärde för manuella utrullningar.
+Jobbet sätter imagens tagg till commitens SHA med `kustomize edit set image`, kör `kubectl apply -k` och väntar med `kubectl rollout status`. Varje commit på `main` som ändrar kod, data eller manifest byggs som en image med commitens SHA och rullas ut efter godkännande. Taggen committas inte tillbaka, så `newTag` i `k8s/base/kustomization.yaml` är bara ett startvärde för manuella utrullningar.
 
 En tillbakarullning i produktion görs med `kubectl rollout undo` och sedan `git revert` av commiten som orsakade problemet. Reverten blir en ny commit som pipelinen rullar ut efter godkännande.
 
@@ -89,13 +99,14 @@ Utrullningar till produktion görs helst onsdagar vid lunch: personal finns på 
 Jag har använt en LLM som handledare under arbetet.
 
 **AI har hjälpt till med:**
-- att förklara begrepp, till exempel kontexter, Kustomize, utrullningsstrategier, revisioner, `maxSurge`/`maxUnavailable`, regularisering och ROC AUC m.m.
-- att föreslå kommandon och kodändringar steg för steg, bland annat `kustomization.yaml`, `securityContext`, bygget för arm64 och jobbet `deploy-production`
-- felsökning i klassklustret: PodSecurity, 403 från ghcr, `exec format error` och kvoten
+- att förklara begrepp, till exempel kontexter, Kustomize, base och overlays, Ingress och Ingress controller, RBAC, utrullningsstrategier, revisioner, `maxSurge`/`maxUnavailable`, regularisering och ROC AUC m.m.
+- att föreslå kommandon och kodändringar steg för steg, bland annat `kustomization.yaml`, `securityContext`, bygget för arm64, jobbet `deploy-production`, Ingressen och overlayen `k8s/overlays/cloud`
+- felsökning i klassklustret: PodSecurity, 403 från ghcr, `exec format error`, kvoten, 503 från Traefik och att jämföra imagens SHA med commiten på `main`
 - en kontrollberäkning av modellen med olika värden på `C`
+- en säkerhetsgenomgång av repot
 - utkast till texten i det här dokumentet, som jag har granskat och anpassat
 
 **Jag har själv:**
 - kört alla kommandon, gjort utrullningarna och kontrollerat resultatet i kind och i klassklustret
-- fattat besluten: Kustomize för image-taggen, rolling update, att återgå till `C = 1,0`, att behålla `k8s/base` och tidpunkten för utrullningar
-- bidragit med resonemangen om hur ringlistan används, varför canary inte passar, uppföljning av kunderna över tid, återkopplingsloopen, att kundbasen fångar förändringar i kundgruppen, Pydantic-kontrollen och behovet av en MLflow-server
+- fattat besluten: Kustomize för image-taggen, rolling update, att återgå till `C = 1,0`, att behålla `k8s/base`, att Ingressen bara behövs i klassklustret och därför ligger i en overlay, tidpunkten för utrullningar samt att sätta image-taggen i overlayen
+- bidragit med resonemangen om hur ringlistan används, varför canary inte passar, uppföljning av kunderna över tid, återkopplingsloopen i driftplanen, att kundbasen fångar förändringar i kundgruppen, Pydantic-kontrollen och behovet av en MLflow-server
